@@ -2,24 +2,90 @@
 
 {% block content %}
 <div class="container mt-5">
-    <h2 class="text-center mb-4">Set Timer</h2>
-    <form method="POST" class="card p-4 shadow-lg">
+    <h2 class="text-center mb-4">Manage Timer</h2>
+
+    <!-- Display Current Timer Status -->
+    <div class="card p-4 shadow-lg mb-3">
+        <h4 class="text-center mb-3">Current Timer Status</h4>
+        <p id="timer-status" class="text-center">
+            Timer: <span id="remaining-time">--:--:--</span>
+        </p>
+        <p class="text-center">
+            Status: <strong id="timer-state">Inactive</strong>
+        </p>
+    </div>
+
+    <!-- Form to Start Timer -->
+    <form method="POST" class="card p-4 shadow-lg mb-3">
         {% csrf_token %}
+        <h4 class="text-center mb-3">Set Timer</h4>
         <div class="row g-3">
             <div class="col-md-4">
                 <label for="hours" class="form-label">Hours</label>
-                <input type="number" id="hours" name="hours" min="0" class="form-control" placeholder="0">
+                <input type="number" id="hours" name="hours" min="0" class="form-control form-control-sm" placeholder="0">
             </div>
             <div class="col-md-4">
                 <label for="minutes" class="form-label">Minutes</label>
-                <input type="number" id="minutes" name="minutes" min="0" max="59" class="form-control" placeholder="0">
+                <input type="number" id="minutes" name="minutes" min="0" max="59" class="form-control form-control-sm" placeholder="0">
             </div>
             <div class="col-md-4">
                 <label for="seconds" class="form-label">Seconds</label>
-                <input type="number" id="seconds" name="seconds" min="0" max="59" class="form-control" placeholder="0">
+                <input type="number" id="seconds" name="seconds" min="0" max="59" class="form-control form-control-sm" placeholder="0">
             </div>
         </div>
-        <button type="submit" class="btn btn-success mt-4 w-100">Start Timer</button>
+        <button type="submit" name="action" value="start" class="btn btn-success btn-sm mt-4 w-100">Start Timer</button>
     </form>
+
+    <!-- Buttons to Manage Existing Timer -->
+    <div class="card p-4 shadow-lg">
+        <h4 class="text-center mb-3">Manage Existing Timer</h4>
+        <form method="POST">
+            {% csrf_token %}
+            <button type="submit" name="action" value="pause" class="btn btn-warning btn-sm mt-2 w-100">Pause Timer</button>
+            <button type="submit" name="action" value="resume" class="btn btn-primary btn-sm mt-2 w-100">Resume Timer</button>
+            <button type="submit" name="action" value="reset" class="btn btn-danger btn-sm mt-2 w-100">Reset Timer</button>
+        </form>
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("[DEBUG] Initializing Timer SSE connection...");
+
+    // Initialize SSE connection
+    const eventSource = new EventSource('/challenges/timer/stream/');
+
+    eventSource.onopen = () => {
+        console.log("[DEBUG] SSE connection opened");
+    };
+
+    eventSource.onmessage = (event) => {
+        console.log("[DEBUG] SSE message received:", event.data);
+        const data = JSON.parse(event.data);
+
+        const timerElement = document.getElementById('remaining-time');
+        const timerStateElement = document.getElementById('timer-state');
+
+        if (data.remaining_time !== null) {
+            timerElement.textContent = formatTime(data.remaining_time);
+            timerStateElement.textContent = data.state || "Active"; // Default to "Active"
+        } else {
+            timerStateElement.textContent = data.state || "Inactive"; // Default to "Inactive"
+        }
+    };
+
+    eventSource.onerror = (error) => {
+        console.error("[DEBUG] SSE error:", error);
+    };
+
+    function formatTime(seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+});
+</script>
 {% endblock %}

@@ -9,4 +9,6 @@ urlpatterns = [
     path('admin/set-timer/', views.set_timer, name='set_timer'),
     path('not-started/', views.not_started_page, name='not_started_page'),
     path('scoreboard/stream/', views.scoreboard_stream, name='scoreboard_stream'),
+    path('set-timer/', views.set_timer, name='set_timer'),
+    path('timer/stream/', views.timer_stream, name='timer_stream'),
 ]
