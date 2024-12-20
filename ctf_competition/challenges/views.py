@@ -92,8 +92,8 @@ def submit_answer(request, question_id):
             return redirect('not_started_page')
         elif timer.start_time is None:
             return redirect('paused_page')
-        elif timer.time_left().total_seconds() <= 0:
-            return redirect('finished_page')
+        # elif timer.time_left().total_seconds() <= 0:
+        #     return redirect('finished_page')
     
     question = get_object_or_404(Question, id=question_id)
     
@@ -136,10 +136,11 @@ def broadcast_submission_event(username, status):
         'username': username,
         'status': status,
     }
+    print(f"Broadcasting event: {message}")
     async_to_sync(channel_layer.group_send)(
-        "submissions",
+        "submissions",  # Ensure this matches the group in submission_stream
         {
-            "type": "submission_event",
+            "type": "update_scoreboard",  # Event handler name
             "message": message,
         }
     )
@@ -147,14 +148,20 @@ def broadcast_submission_event(username, status):
 @user_passes_test(lambda user: user.is_staff or user.is_superuser, login_url='login')
 def submission_stream(request):
     def event_stream():
+        channel_layer = get_channel_layer()
+
         while True:
-            channel_layer = get_channel_layer()
-            submission_data = async_to_sync(channel_layer.receive)("submissions")
-            if submission_data:
-                yield f"data: {json.dumps(submission_data['message'])}\n\n"
-            time.sleep(1)
+            try:
+                message = async_to_sync(channel_layer.receive)("submissions")
+                if message:
+                    print(f"[DEBUG] Sending message to client: {message['message']}")
+                    yield f"data: {json.dumps(message['message'])}\n\n"
+            except Exception as e:
+                print(f"[ERROR] Error in submission_stream: {e}")
+            time.sleep(0.1)  # Non-blocking delay
 
     return StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+
 
 
 
@@ -184,7 +191,7 @@ def question_categories(request):
     if not request.user.is_staff and not request.user.is_superuser:
         if not timer or timer.start_time is None:  # Timer not started
             return redirect('not_started_page')
-        elif timer.is_active() and timer.start_time is not None:  # Timer paused
+        elif not timer.is_active() and timer.start_time is not None:  # Timer paused
             return redirect('paused_page')
         elif timer.is_active() and timer.time_left().total_seconds() <= 0:  # Timer finished
             return redirect('finished_page')
@@ -208,8 +215,8 @@ def questions_in_category(request, category_name):
             return redirect('not_started_page')
         elif not timer.is_active() and timer.start_time is not None:  # Timer paused
             return redirect('paused_page')
-        elif timer.is_active() and timer.time_left().total_seconds() <= 0:  # Timer finished
-            return redirect('finished_page')
+        # elif timer.is_active() and timer.time_left().total_seconds() <= 0:  # Timer finished
+        #     return redirect('finished_page')
 
     questions = Question.objects.filter(category=category_name)
     return render(request, 'challenges/questions_in_category.html', {'questions': questions, 'category_name': category_name})
@@ -225,7 +232,6 @@ def not_started_page(request):
     return render(request, 'challenges/not_started.html', {'timer': timer})
 
 
-@user_passes_test(lambda user: user.is_staff or user.is_superuser, login_url='login')
 @user_passes_test(lambda user: user.is_staff or user.is_superuser, login_url='login')
 def scoreboard_stream(request):
     def event_stream():
