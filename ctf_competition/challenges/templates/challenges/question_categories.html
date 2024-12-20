@@ -1,0 +1,18 @@
+{% extends 'challenges/base.html' %}
+
+{% block content %}
+<h2 class="text-center mt-4">Categories</h2>
+<div class="row mt-4">
+    {% for category, questions in categories.items %}
+    <div class="col-md-3 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title text-center">{{ category }}</h5>
+                <p class="text-center">{{ questions.count }} challenges</p>
+                <a href="{% url 'questions_in_category' category %}" class="btn btn-primary w-100">View Challenges</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,75 @@
+{% extends 'challenges/base.html' %}
+
+{% block content %}
+<h2 class="text-center mt-4">Player Scoreboard</h2>
+<h4 id="timer" class="text-center mb-4">Timer: --:--:--</h4>
+<table class="table table-striped mt-4">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Username</th>
+            <th>Score</th>
+        </tr>
+    </thead>
+    <tbody id="scoreboard-body">
+        <!-- Scores will be dynamically inserted by JavaScript -->
+    </tbody>
+</table>
+<p>[DEBUG] Template Loaded</p>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+console.log("[DEBUG] Script loaded");
+
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("[DEBUG] Initializing SSE connection...");
+
+    // Initialize SSE connection
+    const eventSource = new EventSource('/challenges/scoreboard/stream/');
+
+    eventSource.onopen = () => {
+        console.log("[DEBUG] SSE connection opened");
+    };
+
+    eventSource.onmessage = (event) => {
+        console.log("[DEBUG] SSE message received:", event.data);
+
+        const data = JSON.parse(event.data);
+
+        // Update scores
+        const tbody = document.getElementById('scoreboard-body');
+        tbody.innerHTML = ''; // Clear the table body
+        data.scores.forEach((score, index) => {
+            const row = `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${score.username}</td>
+                    <td>${score.score}</td>
+                </tr>
+            `;
+            tbody.innerHTML += row;
+        });
+
+        // Update timer
+        const timerElement = document.getElementById('timer');
+        if (data.remaining_time !== null) {
+            timerElement.textContent = `Timer: ${formatTime(data.remaining_time)}`;
+        } else {
+            timerElement.textContent = "Timer: --:--:--";
+        }
+    };
+
+    eventSource.onerror = (error) => {
+        console.error("[DEBUG] SSE error:", error);
+    };
+
+    function formatTime(seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+});
+</script>
+{% endblock %}

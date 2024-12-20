@@ -1,0 +1,3 @@
+GET http://127.0.0.1:8000/admin/scoreboard/stream/ HTTP/1.1
+Host: 127.0.0.1:8000
+Cookie: csrftoken=GeTjVdu4r4WVjCIQ7VLfU2C6JvN1f3Jk; sessionid=473q2w8w3afoplumlvab8crysilih6sv

@@ -1,0 +1,42 @@
+{% extends 'challenges/base.html' %}
+{% block content %}
+<h1 class="text-center mb-4">CTF Questions</h1>
+{% for question in questions %}
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">{{ question.title }} ({{ question.points }} points)</h5>
+        <p class="card-text">{{ question.description }}</p>
+        <form method="POST" action="{% url 'submit_answer' question.id %}">
+            {% csrf_token %}
+            {% if question.is_multiple_choice %}
+            <div class="mb-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="answer" id="option1" value="{{ question.option_1 }}" required>
+                    <label class="form-check-label" for="option1">{{ question.option_1 }}</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="answer" id="option2" value="{{ question.option_2 }}" required>
+                    <label class="form-check-label" for="option2">{{ question.option_2 }}</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="answer" id="option3" value="{{ question.option_3 }}" required>
+                    <label class="form-check-label" for="option3">{{ question.option_3 }}</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="answer" id="option4" value="{{ question.option_4 }}" required>
+                    <label class="form-check-label" for="option4">{{ question.option_4 }}</label>
+                </div>
+            </div>
+            {% else %}
+            <div class="input-group">
+                <input type="text" class="form-control" placeholder="Your Answer" name="answer" required>
+            </div>
+            {% endif %}
+            <button class="btn btn-success mt-3 w-100" type="submit">Submit</button>
+        </form>
+    </div>
+</div>
+{% empty %}
+<p>No questions available.</p>
+{% endfor %}
+{% endblock %}

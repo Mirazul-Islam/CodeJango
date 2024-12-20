@@ -1,0 +1,11 @@
+{% extends 'challenges/base.html' %}
+
+{% block content %}
+<div class="container text-center mt-5">
+    <h2>The Challenges Have Not Started Yet</h2>
+    <p class="lead">Please wait for the admin to start the challenges.</p>
+    {% if timer %}
+        <p>Challenges are scheduled to start at: <strong>{{ timer.start_time }}</strong></p>
+    {% endif %}
+</div>
+{% endblock %}
