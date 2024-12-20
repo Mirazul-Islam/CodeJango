@@ -1,0 +1,9 @@
+{% extends 'challenges/base.html' %}
+
+{% block content %}
+<div class="container text-center mt-5">
+    <h2>The Challenges Have Finished</h2>
+    <p class="lead">Thank you for participating!</p>
+    <a href="{% url 'scoreboard' %}" class="btn btn-primary mt-4">View Final Scores</a>
+</div>
+{% endblock %}

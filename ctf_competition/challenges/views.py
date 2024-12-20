@@ -8,8 +8,8 @@ from .models import Question, Submission, PlayerScore, ChallengeTimer
 import json
 import time
 from django.http import JsonResponse
-
-
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 @user_passes_test(lambda user: user.is_staff or user.is_superuser, login_url='not_started_page')
 def set_timer(request):
@@ -68,8 +68,12 @@ def question_list(request):
 
     # Redirect non-admin users if timer has not started
     if not request.user.is_staff and not request.user.is_superuser:
-        if not timer or not timer.has_started():
+        if not timer or timer.start_time is None:
             return redirect('not_started_page')
+        elif not timer.is_active() and timer.start_time is not None:
+            return redirect('paused_page')
+        elif timer.is_active() and timer.time_left().total_seconds() <= 0:
+            return redirect('finished_page')
 
     questions = Question.objects.all()
     return render(request, 'challenges/questions.html', {'questions': questions})
@@ -77,7 +81,19 @@ def question_list(request):
 
 @login_required
 def submit_answer(request, question_id):
+    
+    timer = ChallengeTimer.objects.first()
+    
+    if not timer or not timer.is_active():
+        if not timer:
+            return redirect('not_started_page')
+        elif timer.start_time is None:
+            return redirect('paused_page')
+        elif timer.time_left().total_seconds() <= 0:
+            return redirect('finished_page')
+    
     question = get_object_or_404(Question, id=question_id)
+    
     if request.method == 'POST':
         user_answer = request.POST.get('answer')
         is_correct = user_answer.strip().lower() == question.answer.lower()
@@ -86,7 +102,10 @@ def submit_answer(request, question_id):
             user=request.user, question=question, is_correct=True
         ).exists()
 
-        if not already_correct:
+        if already_correct:
+            messages.info(request, "You have already earned points for this question!")
+            broadcast_submission_event(request.user.username, "already")
+        else:
             Submission.objects.create(
                 user=request.user,
                 question=question,
@@ -97,8 +116,43 @@ def submit_answer(request, question_id):
                 player_score, created = PlayerScore.objects.get_or_create(user=request.user)
                 player_score.score += question.points
                 player_score.save()
+                messages.success(request, "Correct answer! Well done!")
+                broadcast_submission_event(request.user.username, "correct")
+            else:
+                messages.error(request, "Incorrect answer. Try again!")
+                broadcast_submission_event(request.user.username, "incorrect")
 
     return redirect('questions_in_category', category_name=question.category)
+
+def broadcast_submission_event(username, status):
+    """
+    Broadcasts a submission event via SSE.
+    """
+    channel_layer = get_channel_layer()
+    message = {
+        'username': username,
+        'status': status,
+    }
+    async_to_sync(channel_layer.group_send)(
+        "submissions",
+        {
+            "type": "submission_event",
+            "message": message,
+        }
+    )
+
+@user_passes_test(lambda user: user.is_staff or user.is_superuser, login_url='login')
+def submission_stream(request):
+    def event_stream():
+        while True:
+            channel_layer = get_channel_layer()
+            submission_data = async_to_sync(channel_layer.receive)("submissions")
+            if submission_data:
+                yield f"data: {json.dumps(submission_data['message'])}\n\n"
+            time.sleep(1)
+
+    return StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+
 
 
 def home_view(request):
@@ -125,8 +179,12 @@ def question_categories(request):
 
     # Redirect non-admin users if timer has not started
     if not request.user.is_staff and not request.user.is_superuser:
-        if not timer or not timer.has_started():
+        if not timer or timer.start_time is None:  # Timer not started
             return redirect('not_started_page')
+        elif timer.is_active() and timer.start_time is not None:  # Timer paused
+            return redirect('paused_page')
+        elif timer.is_active() and timer.time_left().total_seconds() <= 0:  # Timer finished
+            return redirect('finished_page')
 
     categories = {
         'HTML': Question.objects.filter(category='HTML'),
@@ -143,8 +201,12 @@ def questions_in_category(request, category_name):
 
     # Redirect non-admin users if timer has not started
     if not request.user.is_staff and not request.user.is_superuser:
-        if not timer or not timer.has_started():
+        if not timer or timer.start_time is None:  # Timer not started
             return redirect('not_started_page')
+        elif not timer.is_active() and timer.start_time is not None:  # Timer paused
+            return redirect('paused_page')
+        elif timer.is_active() and timer.time_left().total_seconds() <= 0:  # Timer finished
+            return redirect('finished_page')
 
     questions = Question.objects.filter(category=category_name)
     return render(request, 'challenges/questions_in_category.html', {'questions': questions, 'category_name': category_name})
@@ -235,3 +297,21 @@ def timer_manage(request):
             return JsonResponse({"status": "success", "message": "Timer reset"})
 
     return JsonResponse({"status": "error", "message": "Invalid request"}, status=400)
+
+@login_required
+def view_question(request, question_id):
+    question = get_object_or_404(Question, id=question_id)
+    return render(request, 'challenges/questions.html', {'questions': [question]})
+
+def paused_page(request):
+    """
+    Displayed when the timer is paused.
+    """
+    return render(request, 'challenges/paused.html')
+
+
+def finished_page(request):
+    """
+    Displayed when the timer is finished.
+    """
+    return render(request, 'challenges/finished.html')
