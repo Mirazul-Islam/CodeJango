@@ -10,6 +10,9 @@ import time
 from django.http import JsonResponse
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from django.contrib.auth.views import LoginView
+
+
 
 @user_passes_test(lambda user: user.is_staff or user.is_superuser, login_url='not_started_page')
 def set_timer(request):
@@ -315,3 +318,11 @@ def finished_page(request):
     Displayed when the timer is finished.
     """
     return render(request, 'challenges/finished.html')
+
+class CustomLoginView(LoginView):
+    template_name = 'registration/login.html'  # Update this to match your directory structure
+
+    def get(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            return redirect('question_categories')
+        return super().get(request, *args, **kwargs)

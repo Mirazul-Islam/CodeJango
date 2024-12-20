@@ -2,24 +2,18 @@
 
 {% block content %}
 <div class="container mt-5">
-    {% if user.is_authenticated %}
-        <script>
-            window.location.href = "{% url 'question_categories' %}";
-        </script>
-    {% else %}
-        <h2 class="text-center">Login</h2>
-        <form method="post">
-            {% csrf_token %}
-            <div class="mb-3">
-                <label for="username" class="form-label">Username</label>
-                <input type="text" name="username" class="form-control" placeholder="Enter your username" required>
-            </div>
-            <div class="mb-3">
-                <label for="password" class="form-label">Password</label>
-                <input type="password" name="password" class="form-control" placeholder="Enter your password" required>
-            </div>
-            <button type="submit" class="btn btn-primary w-100">Login</button>
-        </form>
-    {% endif %}
+    <h2 class="text-center">Login</h2>
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="username" class="form-label">Username</label>
+            <input type="text" name="username" class="form-control" placeholder="Enter your username" required>
+        </div>
+        <div class="mb-3">
+            <label for="password" class="form-label">Password</label>
+            <input type="password" name="password" class="form-control" placeholder="Enter your password" required>
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Login</button>
+    </form>
 </div>
 {% endblock %}

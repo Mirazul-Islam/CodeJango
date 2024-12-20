@@ -1,7 +1,10 @@
 from django.urls import path
 from challenges import views
+from challenges.views import CustomLoginView
+
 
 urlpatterns = [
+    path('login/', CustomLoginView.as_view(), name='login'),  # Map to your custom login view
     path('', views.question_categories, name='question_categories'),
     path('category/<str:category_name>/', views.questions_in_category, name='questions_in_category'),
     path('question/<int:question_id>/', views.view_question, name='view_question'),  # Add this
