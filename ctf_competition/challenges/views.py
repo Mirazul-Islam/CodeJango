@@ -7,6 +7,8 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from .models import Question, Submission, PlayerScore, ChallengeTimer
 import json
 import time
+from django.http import JsonResponse
+
 
 
 @user_passes_test(lambda user: user.is_staff or user.is_superuser, login_url='not_started_page')
@@ -187,14 +189,18 @@ def timer_stream(request):
             timer = ChallengeTimer.objects.first()
             if timer:
                 if timer.is_active():
-                    state = "Active"
                     remaining_time = int(timer.time_left().total_seconds())
+                    if remaining_time <= 0:
+                        state = "Finished"
+                        remaining_time = 0  # Ensure the timer shows 00:00:00
+                    else:
+                        state = "Active"
                 elif timer.start_time is None and timer.duration:
                     state = "Paused"
                     remaining_time = int(timer.duration.total_seconds())
                 else:
                     state = "Finished"
-                    remaining_time = None
+                    remaining_time = 0  # Ensure the timer shows 00:00:00
             else:
                 state = "Inactive"
                 remaining_time = None
@@ -207,3 +213,25 @@ def timer_stream(request):
             time.sleep(1)
 
     return StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+
+@user_passes_test(lambda user: user.is_staff or user.is_superuser)
+def timer_manage(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        action = data.get("action")
+
+        timer = ChallengeTimer.objects.first()
+        if action == "pause" and timer:
+            timer.duration = timer.time_left()
+            timer.start_time = None
+            timer.save()
+            return JsonResponse({"status": "success", "message": "Timer paused"})
+        elif action == "resume" and timer:
+            timer.start_time = now()
+            timer.save()
+            return JsonResponse({"status": "success", "message": "Timer resumed"})
+        elif action == "reset":
+            ChallengeTimer.objects.all().delete()
+            return JsonResponse({"status": "success", "message": "Timer reset"})
+
+    return JsonResponse({"status": "error", "message": "Invalid request"}, status=400)

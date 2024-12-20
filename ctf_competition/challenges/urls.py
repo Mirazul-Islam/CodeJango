@@ -11,4 +11,5 @@ urlpatterns = [
     path('scoreboard/stream/', views.scoreboard_stream, name='scoreboard_stream'),
     path('set-timer/', views.set_timer, name='set_timer'),
     path('timer/stream/', views.timer_stream, name='timer_stream'),
+    path('timer/manage/', views.timer_manage, name='timer_manage'),
 ]
