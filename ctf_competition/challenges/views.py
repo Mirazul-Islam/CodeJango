@@ -11,7 +11,12 @@ from django.http import JsonResponse
 from django.contrib.auth.views import LoginView
 from collections import deque
 from asgiref.sync import async_to_sync
-from .led_controller import turn_led_white, turn_led_green_strobe, turn_led_red_strobe
+from .led_controller import (
+    set_color_white,
+    set_color_yellow,
+    blink_green_strobe,
+    blink_red_strobe
+)
 
 
 submission_event_queue = deque()
@@ -35,7 +40,7 @@ def set_timer(request):
             ChallengeTimer.objects.all().delete()  # Ensure only one timer exists
             ChallengeTimer.objects.create(start_time=now(), duration=duration)
             messages.success(request, "Timer started successfully!")
-            async_to_sync(turn_led_white)()  # Turn LED strip white
+            async_to_sync(set_color_white)()  # Turn LED strip white
 
             return redirect('set_timer')
 
@@ -86,18 +91,26 @@ def question_list(request):
 
 @login_required
 def submit_answer(request, question_id):
-    
     timer = ChallengeTimer.objects.first()
-    
+
     if not timer or not timer.is_active():
         return redirect('not_started_page')
-    
+
     question = get_object_or_404(Question, id=question_id)
-    
+
+    # 1. Count how many submissions user has made for this question
+    user_submissions_count = Submission.objects.filter(user=request.user, question=question).count()
+
+    # 2. Check if user still has attempts left
+    if user_submissions_count >= question.max_attempts:
+        messages.warning(request, "You have used all your attempts for this question!")
+        return redirect('questions_in_category', category_name=question.category)
+
     if request.method == 'POST':
         user_answer = request.POST.get('answer')
         is_correct = user_answer.strip().lower() == question.answer.lower()
 
+        # Check if user already got the question correct in a previous attempt
         already_correct = Submission.objects.filter(
             user=request.user, question=question, is_correct=True
         ).exists()
@@ -118,14 +131,14 @@ def submit_answer(request, question_id):
                 player_score.save()
                 messages.success(request, "Correct answer! Well done!")
                 broadcast_submission_event(request.user.username, "correct")
-                async_to_sync(turn_led_green_strobe)()
+                async_to_sync(blink_green_strobe)()
             else:
                 messages.error(request, "Incorrect answer. Try again!")
                 broadcast_submission_event(request.user.username, "incorrect")
-                async_to_sync(turn_led_red_strobe)()
-
+                async_to_sync(blink_red_strobe)()
 
     return redirect('questions_in_category', category_name=question.category)
+
 
 def broadcast_submission_event(username, status):
     message = {
@@ -275,11 +288,13 @@ def timer_manage(request):
 
         timer = ChallengeTimer.objects.first()
         if action == "pause" and timer:
+            async_to_sync(set_color_yellow)()
             timer.duration = timer.time_left()
             timer.start_time = None
             timer.save()
             return JsonResponse({"status": "success", "message": "Timer paused"})
         elif action == "resume" and timer:
+            async_to_sync(set_color_white)()
             timer.start_time = now()
             timer.save()
             return JsonResponse({"status": "success", "message": "Timer resumed"})
@@ -292,7 +307,22 @@ def timer_manage(request):
 @login_required
 def view_question(request, question_id):
     question = get_object_or_404(Question, id=question_id)
-    return render(request, 'challenges/questions.html', {'questions': [question]})
+
+    # Count how many times the user submitted this question
+    submissions_count = Submission.objects.filter(
+        user=request.user, question=question
+    ).count()
+
+    # Calculate attempts left
+    attempts_left = question.max_attempts - submissions_count
+
+    # Attach attempts_left to the question object itself
+    question.attempts_left = attempts_left
+
+    return render(request, 'challenges/questions.html', {
+        # Provide a single-item list so your template can still loop as if it's multiple
+        'questions': [question],
+    })
 
 def paused_page(request):
     """

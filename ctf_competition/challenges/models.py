@@ -47,6 +47,8 @@ class Question(models.Model):
     option_3 = models.CharField(max_length=255, blank=True, null=True)
     option_4 = models.CharField(max_length=255, blank=True, null=True)
 
+    max_attempts = models.PositiveIntegerField(default=1)
+
     def __str__(self):
         return self.title
 
