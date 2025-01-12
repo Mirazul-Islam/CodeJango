@@ -73,8 +73,6 @@ def question_list(request):
     if not request.user.is_staff and not request.user.is_superuser:
         if not timer or timer.start_time is None:
             return redirect('not_started_page')
-        elif not timer.is_active() and timer.start_time is not None:
-            return redirect('paused_page')
         elif timer.is_active() and timer.time_left().total_seconds() <= 0:
             return redirect('finished_page')
 
@@ -88,12 +86,7 @@ def submit_answer(request, question_id):
     timer = ChallengeTimer.objects.first()
     
     if not timer or not timer.is_active():
-        if not timer:
-            return redirect('not_started_page')
-        elif timer.start_time is None:
-            return redirect('paused_page')
-        # elif timer.time_left().total_seconds() <= 0:
-        #     return redirect('finished_page')
+        return redirect('not_started_page')
     
     question = get_object_or_404(Question, id=question_id)
     
@@ -187,14 +180,29 @@ def register(request):
 def question_categories(request):
     timer = ChallengeTimer.objects.first()
 
-    # Redirect non-admin users if timer has not started
+    if timer:
+        # Log or print all attributes and methods of the timer object
+        print("Attributes and methods of timer:", dir(timer))
+        
+        # Log or print instance variables (fields) of the timer object
+        print("Instance variables of timer:", vars(timer))
+
+        # Log or print the values of specific fields (if any)
+        print("Timer fields: start_time =", timer.start_time)
+    else:
+        print("No timer found.")
+
+    # Redirect non-admin users based on timer state
     if not request.user.is_staff and not request.user.is_superuser:
-        if not timer or timer.start_time is None:  # Timer not started
+        if not timer or not timer.has_started():  # Timer not started
+            print("Timer not started")
             return redirect('not_started_page')
-        elif not timer.is_active() and timer.start_time is not None:  # Timer paused
-            return redirect('paused_page')
-        elif timer.is_active() and timer.time_left().total_seconds() <= 0:  # Timer finished
+        elif timer.time_left() and timer.time_left().total_seconds() <= 0:  # Timer finished
+            print("Timer finished")
             return redirect('finished_page')
+
+    # Normal logic for staff/superusers
+    print("Timer is active and user has access.")
 
     categories = {
         'HTML': Question.objects.filter(category='HTML'),
@@ -213,10 +221,8 @@ def questions_in_category(request, category_name):
     if not request.user.is_staff and not request.user.is_superuser:
         if not timer or timer.start_time is None:  # Timer not started
             return redirect('not_started_page')
-        elif not timer.is_active() and timer.start_time is not None:  # Timer paused
-            return redirect('paused_page')
-        # elif timer.is_active() and timer.time_left().total_seconds() <= 0:  # Timer finished
-        #     return redirect('finished_page')
+        elif timer.is_active() and timer.time_left().total_seconds() <= 0:  # Timer finished
+            return redirect('finished_page')
 
     questions = Question.objects.filter(category=category_name)
     return render(request, 'challenges/questions_in_category.html', {'questions': questions, 'category_name': category_name})

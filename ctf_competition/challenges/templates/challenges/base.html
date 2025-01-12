@@ -38,7 +38,7 @@
         {% if messages %}
             <div class="mb-3">
                 {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                <div class="alert alert-{{ message.tags }} fade show">{{ message }}</div>
                 {% endfor %}
             </div>
         {% endif %}
@@ -48,6 +48,19 @@
     <!-- Include JavaScript dynamically -->
     {% block extra_scripts %}
     <script>
+         // Wait for the DOM to be fully loaded
+         document.addEventListener("DOMContentLoaded", function () {
+            // Select all alerts
+            const alerts = document.querySelectorAll('.alert');
+            
+            // Set a timer to remove each alert after 3 seconds
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    alert.classList.add('fade');
+                    setTimeout(() => alert.remove(), 500); // Wait for fade animation to complete
+                }, 1000); // 3 seconds
+            });
+        });
     </script>
     {% endblock %}
 </body>

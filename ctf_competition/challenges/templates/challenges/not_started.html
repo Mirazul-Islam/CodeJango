@@ -2,10 +2,7 @@
 
 {% block content %}
 <div class="container text-center mt-5">
-    <h2>The Challenges Have Not Started Yet</h2>
-    <p class="lead">Please wait for the admin to start the challenges.</p>
-    {% if timer %}
-        <p>Challenges are scheduled to start at: <strong>{{ timer.start_time }}</strong></p>
-    {% endif %}
+    <h2>The Challenges Are Not Active</h2>
+    <p class="lead">The challenges have not started or are currently paused. Please wait for the admin to start or resume them.</p>
 </div>
 {% endblock %}

@@ -11,15 +11,19 @@ class ChallengeTimer(models.Model):
 
     def is_active(self):
         """Check if the timer is currently active."""
-        if not self.start_time or not self.duration:
+        if not self.has_started() or not self.duration:
             return False
         return now() < self.start_time + self.duration
 
     def time_left(self):
         """Get the remaining time if the timer is active."""
         if not self.is_active():
+            # Return a negative timedelta if the timer has expired
+            if self.has_started() and self.duration:
+                return (self.start_time + self.duration) - now()
             return None
         return (self.start_time + self.duration) - now()
+
     def has_started(self):
         """Check if the timer has started."""
         return self.start_time is not None and now() >= self.start_time

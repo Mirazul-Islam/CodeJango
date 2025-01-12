@@ -16,6 +16,7 @@ urlpatterns = [
     path('finished/', views.finished_page, name='finished_page'),  # Finished page
     path('scoreboard/stream/', views.scoreboard_stream, name='scoreboard_stream'),
     path('set-timer/', views.set_timer, name='set_timer'),
+    path('submissions/stream/', views.submission_stream, name='submissions_stream'),  # Add this
     path('timer/stream/', views.timer_stream, name='timer_stream'),
     path('timer/manage/', views.timer_manage, name='timer_manage'),
 ]
