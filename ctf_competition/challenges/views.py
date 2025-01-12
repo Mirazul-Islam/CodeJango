@@ -8,11 +8,13 @@ from .models import Question, Submission, PlayerScore, ChallengeTimer
 import json
 import time
 from django.http import JsonResponse
-from channels.layers import get_channel_layer
-from asgiref.sync import async_to_sync
 from django.contrib.auth.views import LoginView
+from collections import deque
+from asgiref.sync import async_to_sync
+from .led_controller import turn_led_white, turn_led_green_strobe, turn_led_red_strobe
 
 
+submission_event_queue = deque()
 
 @user_passes_test(lambda user: user.is_staff or user.is_superuser, login_url='not_started_page')
 def set_timer(request):
@@ -33,6 +35,8 @@ def set_timer(request):
             ChallengeTimer.objects.all().delete()  # Ensure only one timer exists
             ChallengeTimer.objects.create(start_time=now(), duration=duration)
             messages.success(request, "Timer started successfully!")
+            async_to_sync(turn_led_white)()  # Turn LED strip white
+
             return redirect('set_timer')
 
         elif action == 'pause':
@@ -114,48 +118,32 @@ def submit_answer(request, question_id):
                 player_score.save()
                 messages.success(request, "Correct answer! Well done!")
                 broadcast_submission_event(request.user.username, "correct")
+                async_to_sync(turn_led_green_strobe)()
             else:
                 messages.error(request, "Incorrect answer. Try again!")
                 broadcast_submission_event(request.user.username, "incorrect")
+                async_to_sync(turn_led_red_strobe)()
+
 
     return redirect('questions_in_category', category_name=question.category)
 
 def broadcast_submission_event(username, status):
-    """
-    Broadcasts a submission event via SSE.
-    """
-    channel_layer = get_channel_layer()
     message = {
         'username': username,
         'status': status,
     }
-    print(f"Broadcasting event: {message}")
-    async_to_sync(channel_layer.group_send)(
-        "submissions",  # Ensure this matches the group in submission_stream
-        {
-            "type": "update_scoreboard",  # Event handler name
-            "message": message,
-        }
-    )
+    submission_event_queue.append(message)
+    print(f"[DEBUG] Successfully broadcasted: {message}")
 
-@user_passes_test(lambda user: user.is_staff or user.is_superuser, login_url='login')
 def submission_stream(request):
     def event_stream():
-        channel_layer = get_channel_layer()
-
+        print("[DEBUG] Starting submission stream")
         while True:
-            try:
-                message = async_to_sync(channel_layer.receive)("submissions")
-                if message:
-                    print(f"[DEBUG] Sending message to client: {message['message']}")
-                    yield f"data: {json.dumps(message['message'])}\n\n"
-            except Exception as e:
-                print(f"[ERROR] Error in submission_stream: {e}")
-            time.sleep(0.1)  # Non-blocking delay
-
+            if submission_event_queue:
+                event = submission_event_queue.popleft()
+                yield f"data: {json.dumps(event)}\n\n"
+            time.sleep(0.5)
     return StreamingHttpResponse(event_stream(), content_type='text/event-stream')
-
-
 
 
 def home_view(request):
@@ -179,18 +167,6 @@ def register(request):
 @login_required
 def question_categories(request):
     timer = ChallengeTimer.objects.first()
-
-    if timer:
-        # Log or print all attributes and methods of the timer object
-        print("Attributes and methods of timer:", dir(timer))
-        
-        # Log or print instance variables (fields) of the timer object
-        print("Instance variables of timer:", vars(timer))
-
-        # Log or print the values of specific fields (if any)
-        print("Timer fields: start_time =", timer.start_time)
-    else:
-        print("No timer found.")
 
     # Redirect non-admin users based on timer state
     if not request.user.is_staff and not request.user.is_superuser:
