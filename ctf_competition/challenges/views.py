@@ -213,8 +213,31 @@ def questions_in_category(request, category_name):
         elif timer.is_active() and timer.time_left().total_seconds() <= 0:  # Timer finished
             return redirect('finished_page')
 
-    questions = Question.objects.filter(category=category_name)
-    return render(request, 'challenges/questions_in_category.html', {'questions': questions, 'category_name': category_name})
+    # Fetch all questions in the category
+    all_questions = Question.objects.filter(category=category_name)
+    available_questions = []
+    completed_correctly = []
+    exhausted_attempts = []
+
+    for question in all_questions:
+        user_submissions = Submission.objects.filter(user=request.user, question=question)
+        user_attempts = user_submissions.count()
+        answered_correctly = user_submissions.filter(is_correct=True).exists()
+
+        if answered_correctly:
+            completed_correctly.append(question)  # Mark as successfully completed
+        elif user_attempts >= question.max_attempts:
+            exhausted_attempts.append(question)  # Mark as exhausted attempts
+        else:
+            available_questions.append(question)  # Still available for attempts
+
+    return render(request, 'challenges/questions_in_category.html', {
+        'category_name': category_name,
+        'available_questions': available_questions,
+        'completed_correctly': completed_correctly,
+        'exhausted_attempts': exhausted_attempts
+    })
+
 
 
 @user_passes_test(lambda user: user.is_staff or user.is_superuser, login_url='login')
